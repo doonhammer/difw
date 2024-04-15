@@ -13,7 +13,7 @@ else
 	KERNEL_VERSION =  linux-headers-$(shell uname -r)
 endif
 
-PROGRAM_NAME ;= difw
+PROGRAM_NAME := difw
 EBPF_NAME := $(PROGRAM_NAME)
 EBPF_PROGRAM := $(PROGRAM_NAME)
 XDP_TARGETS := $(PROGRAM_NAME)_kern
