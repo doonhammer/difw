@@ -32,7 +32,7 @@ NOSTDINC_FLAGS := -nostdinc
 # Source Directories
 #
 C_SRC_DIR := src
-vpath  %.c $(C_SRC_DIR) common
+vpath  %.c $(C_SRC_DIR) common src/daemon src/ebpf
 #
 H_SRC_DIR := src
 vpath  %.h $(H_SRC_DIR) common
@@ -94,9 +94,11 @@ CFLAGS += -DBUFFER
 #CFLAGS += -I/usr/src/linux-$(KERNEL_VERSION)/tools/include/
 #
 #
+
 OBJS = \
 	$(OBJ_DIR)/$(EBPF_PROGRAM).o \
-	$(OBJ_DIR)/xdp_load.o
+	$(OBJ_DIR)/xdp_load.o \
+    $(OBJ_DIR)/dyk_error.o
 
 $(EBPF_PROGRAM).o: $(EBPF_PROGRAM).c
 	$(CC) $(CFLAGS) $< -o $(OBJ_DIR)/$@
