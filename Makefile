@@ -7,10 +7,10 @@
 #
 OS=$(shell lsb_release -si)
 TARGET_OS := Ubuntu
-ifeq ($(OS), $(LOCAL_VERSION))
-	KERNEL_VERSION = kernels/$(shell uname -r)
-else
+ifeq ($(OS), $(TARGET_OS))
 	KERNEL_VERSION =  linux-headers-$(shell uname -r)
+else
+	KERNEL_VERSION = kernels/$(shell uname -r)
 endif
 
 PROGRAM_NAME := difw
