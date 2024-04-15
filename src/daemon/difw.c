@@ -3,6 +3,8 @@
 
 int main(int argc, char **argv)
 {
+
+    /**
     if (argc < 2)
     {
         printf("Usage: %s <config file>\n", argv[0]);
@@ -24,6 +26,7 @@ int main(int argc, char **argv)
     {
         return 1;
     }
+    */
 
     return 0;
 }
