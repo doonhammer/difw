@@ -154,5 +154,3 @@ clean:
 	rm -f *.ll
 	rm -f obj/*.o
 	rm -f $(EBPF_PROGRAM)
-
-```
