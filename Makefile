@@ -13,11 +13,12 @@ else
 	KERNEL_VERSION =  linux-headers-$(shell uname -r)
 endif
 
-EBPF_NAME := $(DIFW_NAME)
-EBPF_PROGRAM := $(DIFW_NAME)
-XDP_TARGETS := $(DIFW_NAME)_kern
+PROGRAM_NAME ;= difw
+EBPF_NAME := $(PROGRAM_NAME)
+EBPF_PROGRAM := $(PROGRAM_NAME)
+XDP_TARGETS := $(PROGRAM_NAME)_kern
 #
-USER_TARGETS := $(DIFW_PROGRAM)
+USER_TARGETS := $(EBPF_PROGRAM)
 LLC := llc
 CLANG := clang
 CC = gcc -g -c -fPIC 
@@ -95,21 +96,16 @@ CFLAGS += -DBUFFER
 #
 OBJS = \
 	$(OBJ_DIR)/$(EBPF_PROGRAM).o \
-	$(OBJ_DIR)/packet_queue.o \
 	$(OBJ_DIR)/xdp_load.o
 
 $(EBPF_PROGRAM).o: $(EBPF_PROGRAM).c
 	$(CC) $(CFLAGS) $< -o $(OBJ_DIR)/$@
 
-packet_queue.o: packet_queue.c
-	$(CC) $(CFLAGS) $< -o $(OBJ_DIR)/$@
-
 xdp_load.o: xdp_load.c
 	$(CC) $(CFLAGS) $< -o $(OBJ_DIR)/$@
 #
-#
-#jederror.o: jederror.c
-#	$(CC) $(CFLAGS) $< -o $(OBJ_DIR)/$@
+dyk_error.o: dyk_error.c
+	$(CC) $(CFLAGS) $< -o $(OBJ_DIR)/$@
 #
 #
 all: llvm-check $(USER_TARGETS) $(XDP_OBJ)
@@ -132,7 +128,7 @@ $(OBJECT_LIBBPF):
 		mkdir -p root; DESTDIR=root $(MAKE) install_headers; \
 	fi
 #
-$(USER_TARGETS): packet_queue.o xdp_load.o $(EBPF_PROGRAM).o
+$(USER_TARGETS): xdp_load.o dyk_error.o $(EBPF_PROGRAM).o
 	$(LD) $(LDFLAGS) $(OBJS) $(LIBS)  -o $@
 #
 $(XDP_OBJ): %.o: %.c
