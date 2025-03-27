@@ -23,7 +23,7 @@ LLC := llc
 CLANG := clang
 CC = gcc -g -c -fPIC 
 #
-ARCH := x86_64
+ARCH := arm64
 XDP_C = ${XDP_TARGETS:=.c}
 XDP_OBJ = ${XDP_C:.c=.o}
 #
@@ -40,13 +40,13 @@ vpath  %.h $(H_SRC_DIR) common
 OBJ_DIR := obj
 BIN_DIR := bin
 #
-#LIBBPF_DIR := ../../../github.com/libbpf
+LIBBPF_DIR := /usr/lib/aarch64-linux-gnu/
 ##OBJECT_LIBBPF := /usr/lib64/libbpf.a
 #OBJECT_LIBELF := /usr/lib/x86_64-linux-gnu/libelf.a
 #OBJECT_LIBZ := /usr/lib/x86_64-linux-gnu/libz.a
 #
 LD := gcc --verbose
-#LDFLAGS := -L$(LIBBPF_DIR) 
+LDFLAGS := -L$(LIBBPF_DIR) 
 #LDFLAGS := -Wl, -Bstatic
 #
 LIBS = -lc -lz -lelf -lbpf
@@ -60,9 +60,9 @@ LIBS = -lc -lz -lelf -lbpf
 #
 #srctree := /usr/src/linux-$(KERNEL_VERSION)
 HOSTCFLAGS ?= -I/usr/include/
-HOSTCFLAGS += -I/usr/src/$(KERNEL_VERSION)/include/
-HOSTCFLAGS += -I/usr/include/x86_64-linux-gnu/
-#HOSTCFLAGS += -I/usr/include/
+#HOSTCFLAGS += -I/usr/src/$(KERNEL_VERSION)/include/
+HOSTCFLAGS += -I/usr/include/aarch64-linux-gnu/
+#HOSTCFLAGS += -I/usr/include/linux
 #HOSTCFLAGS += -I/home/jmcdowall/repository/code/go/src/github.com/libbpf/include/uapi/
 #HOSTCFLAGS += -I/usr/include/linux
 #HOSTCFLAGS += -I$(srctree)/usr/include
