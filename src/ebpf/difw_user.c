@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <linux/if_link.h>
+#include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 #include <net/if.h>
 #include <arpa/inet.h>

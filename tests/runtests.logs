@@ -1,1 +1,23 @@
 Creating test
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.disable_ipv6 = 1
+Actual changes:
+tx-checksum-ip-generic: off
+tx-generic-segmentation: off
+tx-tcp-segmentation: off [not requested]
+tx-tcp-ecn-segmentation: off [not requested]
+tx-tcp-mangleid-segmentation: off [not requested]
+tx-tcp6-segmentation: off [not requested]
+tx-checksum-sctp: off
+rx-checksum: off
+Actual changes:
+tx-checksum-ip-generic: off
+tx-generic-segmentation: off
+tx-tcp-segmentation: off [not requested]
+tx-tcp-ecn-segmentation: off [not requested]
+tx-tcp-mangleid-segmentation: off [not requested]
+tx-tcp6-segmentation: off [not requested]
+tx-checksum-sctp: off
+rx-checksum: off

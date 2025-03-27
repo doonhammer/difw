@@ -25,68 +25,116 @@
 #include <getopt.h>
 #include <string.h>
 #include <unistd.h>
-#include <linux/if.h>
 #include <linux/if_link.h>
 #include <linux/bpf.h>
 #include <linux/bpf_common.h>
+#include <net/if.h>
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
+#include <arpa/inet.h>
 
-#define IFNAMSIZ 16
 
+static int ifindex = -1;
 static __u32 xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST;
+static __u32 prog_fd;
+
+// Same structures as in kernel program
+struct session_key {
+    __u32 src_ip;
+    __u32 dst_ip;
+    __u16 src_port;
+    __u16 dst_port;
+    __u8 protocol;
+};
+
+struct session_info {
+    __u64 packets;
+    __u64 bytes;
+    __u64 timestamp;
+};
 
 typedef struct _arg_config {
   char first[IFNAMSIZ];
   char second[IFNAMSIZ];
 } arg_config_t;
 
+static volatile bool running = true;
+
+static void int_exit(int sig)
+{
+    __u32 curr_prog_id = 0;
+
+    if (ifindex > -1) {
+        if (bpf_xdp_query_id(ifindex, xdp_flags, &curr_prog_id)) {
+            printf("bpf_xdp_query_id failed\n");
+            exit(1);
+        }
+        if (prog_fd == curr_prog_id)
+            bpf_xdp_detach(ifindex, xdp_flags, NULL);
+        else if (!curr_prog_id)
+            printf("couldn't find a prog id on a given iface\n");
+        else
+            printf("program on interface changed, not removing\n");
+    }
+    exit(0);
+}
+
+static void print_session(const struct session_key *key, const struct session_info *info)
+{
+    char src_ip[16], dst_ip[16];
+    inet_ntop(AF_INET, &key->src_ip, src_ip, sizeof(src_ip));
+    inet_ntop(AF_INET, &key->dst_ip, dst_ip, sizeof(dst_ip));
+    
+    printf("Session: %s:%d -> %s:%d (proto: %d)\n",
+           src_ip, key->src_port,
+           dst_ip, key->dst_port,
+           key->protocol);
+    printf("  Packets: %llu\n", info->packets);
+    printf("  Bytes: %llu\n", info->bytes);
+    printf("  Last seen: %llu ns\n", info->timestamp);
+}
+
 /*
  Program config
  */
 void print_config(arg_config_t *config){
-    printf("\n---- VNF Test Utility ----\n");
-    printf("First interface: %s\n", config->first);
-    printf("Second interface: %s\n", config->second);
+    printf("\n---- DIFW Test Utility ----\n");
+    printf("Interface to attach to: %s\n", config->first);
     printf("----------------------------------------\n");
 }
 int main(int argc, char **argv)
 {
     char arg_first[IFNAMSIZ];
-    char arg_second[IFNAMSIZ];
+    char filename[256];
+    struct bpf_program *prog;
+    struct bpf_object *obj;
+    int map_fd;
     int c,err;
 
-    struct bpf_prog_load_attr prog_load_attr = {
-        .prog_type  = BPF_PROG_TYPE_XDP,
-    };
+
 
     xdp_flags |= XDP_FLAGS_SKB_MODE;
 
     static struct option longopts[] = {
-        {"first", required_argument,0,'f'},
-        {"second", required_argument,0,'s'},
+        {"interface", required_argument,0,'i'},
         {"help",no_argument,0,'h'},
     };
     /*
     * Set defaults
     */
     arg_first[0]='\0';
-    arg_second[0] = '\0';
+   
         /*
      * Loop over input
      */
-    while (( c = getopt_long(argc,argv, "f:s:h",longopts,NULL))!=-1){
+    while (( c = getopt_long(argc,argv, "i:h",longopts,NULL))!=-1){
         switch(c) {
-            case 'f':
+            case 'i':
                 strncpy(arg_first,optarg,IFNAMSIZ-1);
-                break;
-            case 's':
-                strncpy(arg_second, optarg,IFNAMSIZ-1);
                 break;
             case 'h':
                 printf("Command line arguments: \n");
-                printf("-f, --first     First interface \n");
-                printf("-s, --second    Second interface \n");
+                printf("-i, --interface     Interface to attach to \n");
                 printf("-h, --help:     Command line help \n");
                 exit(1);
             default:
@@ -96,82 +144,68 @@ int main(int argc, char **argv)
     }
 
 
-    int ifindex1 = if_nametoindex(arg_first);
-    int ifindex2 = if_nametoindex(arg_second);
-    if (!ifindex1 || !ifindex2)
+    ifindex = if_nametoindex(arg_first);
+    if (!ifindex)
     {
         perror("Failed to get interface index");
         return 1;
     }
 
-    struct bpf_object *obj;
-    int prog_fd;
-    prog_load_attr.file = "difw_kern.o";
+    snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
+    obj = bpf_object__open_file(filename, NULL);
+    if (libbpf_get_error(obj))
+        return 1;
 
-    err = bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd);
-    if (err) {
-        printf("Does kernel support devmap lookup?\n");
-        /* If not, the error message will be:
-         *  "cannot pass map_type 14 into func bpf_map_lookup_elem#1"
-         */
-        return 1;
-    }
-/*
-    obj = bpf_object__open_file("difw_kern.o", NULL);
-    if (!obj)
-    {
-        fprintf(stderr, "Failed to open BPF object\n");
-        return 1;
-    }
+    //prog = bpf_object__next_program(obj, NULL);
+   
 
-    if (bpf_object__load(obj))
-    {
-        fprintf(stderr, "Failed to load BPF object\n");
-        bpf_object__close(obj);
-        return 1;
+    prog = bpf_object__find_program_by_name(obj, "difw");
+    if (!prog) {
+        fprintf(stderr, "ERROR: finding a prog in obj file failed\n");
     }
-*/
-    struct bpf_program *prog = bpf_object__find_program_by_title(obj, "difw");
-    if (!prog)
-    {
-        fprintf(stderr, "Failed to find BPF program\n");
-        bpf_object__close(obj);
+    bpf_program__set_type(prog, BPF_PROG_TYPE_XDP);
+
+    err = bpf_object__load(obj);
+    if (err)
         return 1;
-    }
 
     prog_fd = bpf_program__fd(prog);
-    if (prog_fd < 0)
-    {
-        fprintf(stderr, "Failed to get BPF program FD\n");
-        bpf_object__close(obj);
+
+
+    if (bpf_xdp_attach(ifindex, prog_fd, xdp_flags, NULL) < 0) {
+        printf("link set xdp fd failed\n");
         return 1;
     }
 
-    if (bpf_set_link_xdp_fd(ifindex1, prog_fd, xdp_flags) < 0)
-    {
-        perror("Failed to attach XDP program to interface 1");
-        bpf_object__close(obj);
+ // Get map file descriptor
+    map_fd = bpf_object__find_map_fd_by_name(obj, "sessions");
+    if (map_fd < 0) {
+        fprintf(stderr, "Error finding map: %s\n", strerror(errno));
         return 1;
     }
 
-    if (bpf_set_link_xdp_fd(ifindex2, prog_fd, xdp_flags) < 0)
-    {
-        perror("Failed to attach XDP program to interface 2");
-        bpf_set_link_xdp_fd(ifindex1, -1, xdp_flags);
-        bpf_object__close(obj);
-        return 1;
-    }
+    printf("Successfully attached XDP program. Monitoring sessions...\n");
 
-    printf("XDP program loaded successfully on %s and %s\n", argv[1], argv[2]);
-
-    // Keep running until user stops the program
-    printf("Press Ctrl+C to exit\n");
-    while (1)
+    // Main loop to print sessions
+    while (running) {
+        struct session_key key, next_key;
+        struct session_info info;
+        
+        memset(&key, 0, sizeof(key));
+        while (bpf_map_get_next_key(map_fd, &key, &next_key) == 0) {
+            if (bpf_map_lookup_elem(map_fd, &next_key, &info) == 0) {
+                print_session(&next_key, &info);
+            }
+            key = next_key;
+        }
+        
+        printf("\n");
         sleep(1);
+    }
 
-    bpf_set_link_xdp_fd(ifindex1, -1, xdp_flags);
-    bpf_set_link_xdp_fd(ifindex2, -1, xdp_flags);
-    bpf_object__close(obj);
+    // Cleanup
+   int_exit(0);
+    return 0;
 
     return 0;
 }

@@ -290,8 +290,11 @@ execute_test_1(){
         #ip netns exec "$SERVER_NS" ethtool -K "$SERVER_INTF" tx on gso on &>> "$TEST_LOG"
         #ip netns exec "$VNF_NS" ethtool -K "$VNF_INTF1" tx on gso on &>> "$TEST_LOG"
         #ip netns exec "$VNF_NS" ethtool -K "$VNF_INTF2" tx on gso on &>> "$TEST_LOG"
+        ip netns exec "$CLIENT_NS" ../difw  -i veth0 &
+        sleep 1
         ip netns exec "$SERVER_NS" iperf3 -s & 
         sleep 1
+
         ip netns exec "$CLIENT_NS" iperf3  -t "$IPERF_TIME" -c "$SERVER_IPADDR" 
     fi
 }
